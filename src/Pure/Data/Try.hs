@@ -3,12 +3,15 @@
 module Pure.Data.Try where
 
 import Pure.Data.JSON
-import Pure.Data.Txt
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Fail
 import Control.Monad.Fix
-import Data.Monoid
+import Control.Monad.Zip
+
+import Data.Monoid hiding ((<>))
+import Data.Semigroup
 
 import GHC.Generics
 
@@ -25,50 +28,71 @@ instance Functor Try where
 
 instance Applicative Try where
   pure = Done
-  (Done f) <*> (Done a) = Done (f a)
-  (Done _) <*> Trying = Trying
-  (Done _) <*> Failed = Failed
-  Failed <*> _ = Failed
+  Done f <*> x = fmap f x
   Trying <*> _ = Trying
+  Failed <*> _ = Failed
 
-instance Monoid a => Monoid (Try a) where
+instance Semigroup a => Monoid (Try a) where
   mempty = Failed
-  mappend (Done a) (Done b) = Done (a <> b)
-  mappend (Done a) _ = Done a
-  mappend _ (Done a) = Done a
-  mappend Failed x = x
-  mappend x _ = x
+  mappend = (<>)
+
+instance Semigroup a => Semigroup (Try a) where
+  (<>) Failed r = r
+  (<>) l Failed = l
+  (<>) Trying r = r
+  (<>) l Trying = l
+  (<>) (Done l) (Done r) = Done (l <> r)
+
+instance MonadFail Try where
+  fail _ = Failed
 
 instance Monad Try where
-  return = Done
+  return = pure
   (>>=) (Done a) f = f a
-  (>>=) Failed _ = Failed
-  (>>=) Trying _ = Trying
+  (>>=)  Trying  _ = Trying
+  (>>=)  Failed  _ = Failed
+
+instance MonadZip Try where
+  mzipWith = liftM2
 
 instance MonadFix Try where
-  mfix f = let a = f (unDone a) in a
-           where unDone (Done x) = x
-                 unDone Failed = error "mfix Try: Failed"
-                 unDone Trying = error "mfix Try: Trying"
+  mfix f =
+      let a = f (unDone a)
+      in a
+    where
+      unDone (Done x) = x
+      unDone Failed = error "mfix Try: Failed"
+      unDone Trying = error "mfix Try: Trying"
 
 instance Foldable Try where
+  foldMap = try mempty mempty
+
   foldr f z (Done x) = f x z
-  foldr _ z _ = z
+  foldr _ z _        = z
 
   foldl f z (Done x) = f z x
-  foldl _ z _ = z
+  foldl _ z _        = z
 
 instance Traversable Try where
   traverse f (Done x) = Done <$> f x
-  traverse _ Trying = pure Trying
-  traverse _ Failed = pure Failed
+  traverse _  Trying  = pure Trying
+  traverse _  Failed  = pure Failed
 
 instance MonadPlus Try
 
 instance Alternative Try where
   empty = Failed
-  (Done a) <|> _ = Done a
-  _ <|> x = x
+  Failed <|> r      = r
+  l      <|> Failed = l
+  Trying <|> r      = r
+  l      <|> _      = l
+
+try :: b -> b -> (a -> b) -> Try a -> b
+try t f d x =
+  case x of
+    Trying -> t
+    Failed -> f
+    Done a -> d a
 
 isTrying :: Try a -> Bool
 isTrying Trying = True
