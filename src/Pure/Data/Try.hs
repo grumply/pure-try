@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 module Pure.Data.Try where
 
+import Pure.Data.Default
 import Pure.Data.JSON
 
 import Control.Applicative
@@ -31,6 +32,10 @@ instance Applicative Try where
   Done f <*> x = fmap f x
   Trying <*> _ = Trying
   Failed <*> _ = Failed
+
+-- Note: (def :: Try a) /= (mempty :: Try a)
+instance Default (Try a) where
+  def = Trying
 
 instance Semigroup a => Monoid (Try a) where
   mempty = Failed
