@@ -1,20 +1,23 @@
 name:                pure-try
-version:             0.7.0.0
-synopsis:
-homepage:            github.com/grumply/pure-try
+version:             0.8.0.0
+homepage:            purehs.org/doc/pure-try
 license:             BSD3
 license-file:        LICENSE
-author:              Sean Mackenzie
-maintainer:          sean@grump.ly
+author:              Sean Hickman
+maintainer:          sean@grumply.com
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
 
+source-repository head
+  type: git
+  location: https://github.com/grumply/pure-try.git
+
 library
   build-depends:
-    base >= 4.9 && < 5,
-    pure-default >= 0.7 && < 1,
-    pure-json >= 0.7 && < 1
+    base,
+    pure-default,
+    pure-json
 
   hs-source-dirs: src
 
